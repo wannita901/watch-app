@@ -130,3 +130,13 @@ def sleep(days: int = 30):
         conn.close()
     keys = ["date", "start_ts", "end_ts", "deep_h", "core_h", "rem_h", "awake_h"]
     return {"nights": [dict(zip(keys, r)) for r in rows]}
+
+
+# Serve the built frontend (must be mounted last so /api/* wins).
+_STATIC = os.environ.get(
+    "STATIC_DIR", os.path.join(os.path.dirname(__file__), "..", "web", "dist")
+)
+if os.path.isdir(_STATIC):
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/", StaticFiles(directory=_STATIC, html=True), name="static")
