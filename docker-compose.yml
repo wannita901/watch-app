@@ -1,0 +1,13 @@
+services:
+  watch-app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - API_KEY=${API_KEY:?set API_KEY in .env}
+    volumes:
+      - watch-data:/data   # SQLite lives here, NOT under OneDrive
+    restart: unless-stopped
+
+volumes:
+  watch-data:
