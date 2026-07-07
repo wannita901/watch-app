@@ -78,7 +78,7 @@ def test_import_maps_hk_identifiers_to_snake_case(client):
     pts = client.get("/api/series/resting_heart_rate?days=9999").json()["points"]
     assert len(pts) == 1 and pts[0]["value"] == 52
     pts = client.get("/api/series/step_count?days=9999").json()["points"]
-    assert [p["value"] for p in pts] == [612, 431]
+    assert [p["value"] for p in pts] == [1043]  # same-day counter points sum per day
 
 
 def test_import_aggregates_sleep_stages_to_wake_date_night(client):
@@ -105,7 +105,7 @@ def test_import_is_idempotent(client):
     do_import(client)
     do_import(client)
     pts = client.get("/api/series/step_count?days=9999").json()["points"]
-    assert len(pts) == 2
+    assert [p["value"] for p in pts] == [1043]  # re-import doesn't double-count
     nights = client.get("/api/sleep?days=9999").json()["nights"]
     assert len(nights) == 1
 
