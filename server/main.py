@@ -18,6 +18,7 @@ from fastapi import (
 import db
 import importer
 import ingest
+import queries
 
 
 @asynccontextmanager
@@ -98,14 +99,22 @@ def status():
 def series(metric: str, days: int = 30):
     conn = db.connect()
     try:
-        rows = conn.execute(
-            """SELECT ts, value FROM samples WHERE metric = ?
-               AND ts >= date('now', ?) ORDER BY ts""",
-            (metric, f"-{days} days"),
-        ).fetchall()
+        points = queries.series_with_band(conn, metric, days)
     finally:
         conn.close()
-    return {"metric": metric, "points": [{"ts": r[0], "value": r[1]} for r in rows]}
+    return {"metric": metric, "points": points}
+
+
+@app.get("/api/summary")
+def summary(days: int = 30):
+    conn = db.connect()
+    try:
+        row = conn.execute(
+            "SELECT ts FROM ingest_log ORDER BY rowid DESC LIMIT 1"
+        ).fetchone()
+        return queries.summary(conn, days, row[0] if row else None)
+    finally:
+        conn.close()
 
 
 @app.get("/api/sleep")
