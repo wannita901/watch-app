@@ -12,8 +12,8 @@ const TAGLINE = "personal Apple Watch health dashboard — plan log";
 const PHASES = [
   { n: 1, title: "Research",     status: "done" },
   { n: 2, title: "Requirements", status: "done" },
-  { n: 3, title: "Build v1",     status: "next" },
-  { n: 4, title: "Iterate v2",   status: "todo" },
+  { n: 3, title: "Build v1",     status: "done" },
+  { n: 4, title: "Deploy + v2",  status: "next" },
 ];
 
 /* One entry per page. n = creation order (stable doc id, also the filename

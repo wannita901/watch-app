@@ -21,6 +21,15 @@
     </p>
 
     <div class="callout good">
+      <div class="label">Status — implemented 2026-07-07</div>
+      Milestones 1–5 built TDD (49 tests green, backend coverage 97%), Docker image built and
+      smoke-tested (health + authed ingest + frontend 200). App live-verified against seeded data,
+      both themes; screenshots in <code>design/app-light.png</code> / <code>app-dark.png</code>.
+      Remaining: milestones 6–7 (deploy on home machine + real backfill) — Wannita's checklist is
+      in <code>README.md</code>.
+    </div>
+
+    <div class="callout good">
       <div class="label">Decisions made here</div>
       (1) <b>Frontend charts: port the mockup's hand-rolled SVG builders into React components — no
       Recharts.</b> The mockup code already implements the band/gap/tooltip specs exactly; a chart
