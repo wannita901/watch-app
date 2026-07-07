@@ -1,9 +1,11 @@
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 
 import db
+import ingest
 
 
 @asynccontextmanager
@@ -15,6 +17,69 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="watch-app", lifespan=lifespan)
 
 
+def require_api_key(x_api_key: str | None = Header(default=None)):
+    expected = os.environ.get("API_KEY")
+    if not expected or x_api_key != expected:
+        raise HTTPException(status_code=401, detail="invalid or missing X-API-Key")
+
+
+def now_ts() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S +0000")
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok", "db": db.db_path()}
+
+
+@app.post("/api/ingest", dependencies=[Depends(require_api_key)])
+async def ingest_route(request: Request):
+    payload = await request.json()
+    conn = db.connect()
+    try:
+        return ingest.ingest_payload(conn, payload, now_ts())
+    finally:
+        conn.close()
+
+
+@app.get("/api/status")
+def status():
+    conn = db.connect()
+    try:
+        row = conn.execute(
+            "SELECT ts, kind, n_rows FROM ingest_log ORDER BY rowid DESC LIMIT 1"
+        ).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return {"last_sync": None, "last_kind": None, "n_rows": 0}
+    return {"last_sync": row[0], "last_kind": row[1], "n_rows": row[2]}
+
+
+@app.get("/api/series/{metric}")
+def series(metric: str, days: int = 30):
+    conn = db.connect()
+    try:
+        rows = conn.execute(
+            """SELECT ts, value FROM samples WHERE metric = ?
+               AND ts >= date('now', ?) ORDER BY ts""",
+            (metric, f"-{days} days"),
+        ).fetchall()
+    finally:
+        conn.close()
+    return {"metric": metric, "points": [{"ts": r[0], "value": r[1]} for r in rows]}
+
+
+@app.get("/api/sleep")
+def sleep(days: int = 30):
+    conn = db.connect()
+    try:
+        rows = conn.execute(
+            """SELECT date, start_ts, end_ts, deep_h, core_h, rem_h, awake_h
+               FROM sleep_nights WHERE date >= date('now', ?) ORDER BY date""",
+            (f"-{days} days",),
+        ).fetchall()
+    finally:
+        conn.close()
+    keys = ["date", "start_ts", "end_ts", "deep_h", "core_h", "rem_h", "awake_h"]
+    return {"nights": [dict(zip(keys, r)) for r in rows]}
