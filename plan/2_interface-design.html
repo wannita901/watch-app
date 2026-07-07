@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interface Design — Watch Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- The sidebar is injected by nav.js — do NOT hand-write it here. -->
+  <main class="content">
+    <header>
+      <div class="eyebrow">Phase 2 · Requirements</div>
+      <h1>Interface Design</h1>
+      <div class="meta">2026-07-07 · interactive mockup: <code>design/mockup.html</code> (open in browser) · screenshots: <code>design/screenshot-light.png</code>, <code>design/screenshot-dark.png</code></div>
+    </header>
+
+    <p class="lead">
+      "Daily brief" layout chosen over dense-grid and timeline-journal alternatives: a 30-second
+      morning glance up top, archive depth one click away. Verified as a working interactive
+      mockup with sample data in light and dark modes.
+    </p>
+
+    <div class="callout good">
+      <div class="label">Decision</div>
+      Layout = <b>daily brief</b>: score strip (readiness hero + sleep score + weekly exercise) →
+      global time-range filter (7d/30d/90d) → four expandable domain rows (Sleep, Heart, Activity,
+      Body &amp; vitals), each with headline numbers + 30-day sparkline collapsed, full charts expanded.
+    </div>
+
+    <h2>Page anatomy (top to bottom)</h2>
+    <table>
+      <thead><tr><th>Zone</th><th>Contents</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Header</td><td>Title, date, <b>last-sync pill</b> (green dot + time), <b>Import file</b> button, theme toggle</td><td>Sync staleness is a first-class signal (HAE stalls silently); manual import always visible</td></tr>
+        <tr><td>Score strip</td><td>Readiness 0–100 (hero, 52px + meter + one-sentence explanation), Sleep score tile, Exercise-week tile — each with delta vs baseline + sparkline</td><td>Exactly one hero number per view; scores are our own recomputations</td></tr>
+        <tr><td>Filter row</td><td>7d / 30d / 90d presets</td><td>One filter row above everything it scopes; all charts re-render on the same slice</td></tr>
+        <tr><td>Sleep row</td><td>Stacked stage bars per night (Deep/Core/REM/Awake), legend, table view</td><td>Stages are depth-ordered → <b>ordinal blue ramp</b> (awake lightest → deep darkest), validated light+dark</td></tr>
+        <tr><td>Heart row</td><td>RHR and HRV as two side-by-side charts, each a 2px line over a gray <b>rolling 30-day mean ±1.5σ band</b> ("your normal"), crosshair tooltip</td><td>Two measures, two charts — never dual-axis</td></tr>
+        <tr><td>Activity row</td><td>Steps columns with goal hairline; weekly exercise in score strip</td><td></td></tr>
+        <tr><td>Body &amp; vitals row</td><td>Small multiples: wrist-temp deviation, SpO₂, respiratory rate — same band treatment</td><td></td></tr>
+        <tr><td>Footer</td><td>v2 teaser (workouts/GPS, noise, mindfulness)</td><td></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Visualization rules applied (dataviz method)</h2>
+    <ul>
+      <li>Palette: reference dataviz palette; sleep-stage ordinal ramps <b>validated by script</b> for light (<code>#86b6ef→#184f95</code>) and dark (<code>#9ec5f4→#184f95</code>) surfaces — all checks pass.</li>
+      <li>Marks: bars ≤24px with 4px rounded data-ends + 2px surface gaps; 2px lines; end-dot with surface ring; hairline solid gridlines; area washes only.</li>
+      <li>Every chart: hover tooltip + crosshair, <b>table-view twin</b> (collapsible), selective end-labels only; text never wears series color.</li>
+      <li>Dark mode: own palette steps, not a flip; toggle + <code>prefers-color-scheme</code> default.</li>
+      <li>Status green reserved for sync-ok dot and positive deltas; never used as a series.</li>
+    </ul>
+
+    <div class="callout">
+      <div class="label">Carried into build (v1 frontend spec)</div>
+      The mockup is the frontend spec: React + Recharts implementation should reproduce this layout,
+      palette, and interaction contract against real API data. Mockup's inline-SVG charts map to
+      Recharts equivalents (or stay hand-rolled SVG if Recharts fights the band/gap specs — decide in build).
+    </div>
+
+    <h2>Open items</h2>
+    <ul>
+      <li>Import page design (drop zone, progress for multi-hundred-MB export.zip, dedupe report) — sketch at build time.</li>
+      <li>Readiness explanation sentence: template rules ("HRV below your normal range") to define with score formulas.</li>
+      <li>Mobile pass: rows collapse to single column (CSS in mockup handles basics); verify on phone during build.</li>
+    </ul>
+
+  </main>
+  <script src="nav.js"></script>
+</body>
+</html>

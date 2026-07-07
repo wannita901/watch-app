@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Build Plan v1 — Watch Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- The sidebar is injected by nav.js — do NOT hand-write it here. -->
+  <main class="content">
+    <header>
+      <div class="eyebrow">Phase 3 · Build v1</div>
+      <h1>Build Plan v1</h1>
+      <div class="meta">2026-07-07 · implements <a href="1_requirements-architecture.html">page 1</a> architecture + <a href="2_interface-design.html">page 2</a> UI spec</div>
+    </header>
+
+    <p class="lead">
+      Seven milestones, each independently verifiable offline with fixtures before anything touches
+      the phone. Wannita runs the two live steps herself (HAE setup, real export import).
+    </p>
+
+    <div class="callout good">
+      <div class="label">Decisions made here</div>
+      (1) <b>Frontend charts: port the mockup's hand-rolled SVG builders into React components — no
+      Recharts.</b> The mockup code already implements the band/gap/tooltip specs exactly; a chart
+      lib would fight them. Supersedes the "React (Recharts)" note on page 1. (2) <b>No scores
+      table:</b> readiness/sleep scores computed at query time — late-arriving overnight samples
+      make cached scores stale anyway; 90 days of rows is trivial to recompute. (3) <b>Own backfill
+      parser</b> (~200 lines, <code>iterparse</code>) — healthkit-to-sqlite is frozen since 2021.
+    </div>
+
+    <h2>Repo layout</h2>
+    <pre><code>watch-app/
+├─ docker-compose.yml          # one service + sqlite volume
+├─ server/                     # FastAPI (Python 3.12)
+│  ├─ main.py                  # app, routes, static serving
+│  ├─ db.py                    # sqlite schema + upsert helpers
+│  ├─ ingest.py                # HAE JSON payload → rows
+│  ├─ importer.py              # export.zip streaming XML parser (backfill)
+│  ├─ scores.py                # readiness + sleep score (all constants in one dict)
+│  ├─ queries.py               # series + rolling-band + summary
+│  └─ tests/                   # pytest + fixture payloads
+├─ web/                        # React + Vite (charts = ported mockup SVG)
+├─ design/mockup.html          # frozen UI spec
+└─ plan/ · research/</code></pre>
+
+    <h2>SQLite schema</h2>
+    <pre><code>samples(metric TEXT, ts TEXT, value REAL, unit TEXT, source TEXT DEFAULT '',
+        PRIMARY KEY (metric, ts, source)) WITHOUT ROWID;   -- idempotent upsert target
+sleep_nights(date TEXT PRIMARY KEY, start_ts TEXT, end_ts TEXT,
+        deep_h REAL, core_h REAL, rem_h REAL, awake_h REAL, source TEXT);
+workouts(id TEXT PRIMARY KEY, type TEXT, start_ts TEXT, end_ts TEXT,
+        duration_s REAL, energy_kcal REAL, distance_km REAL, avg_hr REAL,
+        raw_json TEXT);                                    -- stored in v1, UI in v2
+ingest_log(ts TEXT, kind TEXT, n_rows INTEGER, detail TEXT);  -- feeds last-sync pill</code></pre>
+    <p>One wide <code>samples</code> table (metric name = HAE metric key, normalized units at
+    ingest); per-night sleep and workouts get their own shape. Re-import and overlapping HAE
+    posts are safe by construction: <code>INSERT OR REPLACE</code> on the natural key.</p>
+
+    <h2>API</h2>
+    <table>
+      <thead><tr><th>Route</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>POST /api/ingest</code></td><td>HAE automation target. Requires <code>X-API-Key</code> header. Accepts HAE JSON (batched); returns rows written.</td></tr>
+        <tr><td><code>POST /api/import</code></td><td>Manual upload: export.zip or HAE JSON/CSV file. Streams zip → <code>iterparse</code> → upserts in a background task; returns job id.</td></tr>
+        <tr><td><code>GET /api/import/{id}</code></td><td>Import progress (records parsed / written) for the UI progress bar.</td></tr>
+        <tr><td><code>GET /api/summary?days=N</code></td><td>Everything the main view needs in one call: scores + deltas, headlines, sparkline arrays, last-sync.</td></tr>
+        <tr><td><code>GET /api/series/{metric}?days=N</code></td><td>Values + rolling mean ±1.5σ band (computed in <code>queries.py</code>).</td></tr>
+        <tr><td><code>GET /api/sleep?days=N</code></td><td>Per-night stage rows.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Score formulas (v0 — tunable constants in <code>scores.py</code>)</h2>
+    <ul>
+      <li><b>Readiness (0–100)</b> = 50 + 25·z(HRV overnight) − 15·z(RHR) + 10·z(sleep duration), z vs trailing 60-day mean/σ, clamped; components returned so the UI can render the explanation sentence ("HRV below your normal range").</li>
+      <li><b>Sleep score (0–100)</b> = 50·(duration/8h capped) + 30·(deep+REM fraction vs 0.35 target) + 20·(bedtime within ±45 min of 14-day median). Same structure Apple publishes as inputs.</li>
+      <li>Both recomputed on read; formulas versioned in one dict so retuning never touches query code.</li>
+    </ul>
+
+    <h2>Milestones</h2>
+    <div class="flow">
+      <div class="node"><div class="rail"><div class="dot">1</div><div class="line"></div></div>
+        <div class="nodebody"><div class="nodehead">Skeleton <span class="tag">~½ day</span></div>
+        <div class="detail">Repo scaffold, docker-compose, FastAPI app, schema creation, /api/summary stub. Verify: <code>curl</code> against container.</div></div></div>
+      <div class="node"><div class="rail"><div class="dot">2</div><div class="line"></div></div>
+        <div class="nodebody"><div class="nodehead">Ingest <span class="tag">~1 day</span></div>
+        <div class="detail">HAE JSON parsing (metrics, sleep phases, workouts), unit normalization, API-key auth, ingest_log. Verify: pytest with fixture payloads built from HAE's documented format.</div></div></div>
+      <div class="node"><div class="rail"><div class="dot">3</div><div class="line"></div></div>
+        <div class="nodebody"><div class="nodehead">Importer <span class="tag">~1 day</span></div>
+        <div class="detail">Streaming export.xml parser + upload endpoint + progress. Verify: pytest on a synthetic small export.zip; then Wannita's real export offline (memory stays flat, counts match Health app).</div></div></div>
+      <div class="node"><div class="rail"><div class="dot">4</div><div class="line"></div></div>
+        <div class="nodebody"><div class="nodehead">Queries + scores <span class="tag">~1 day</span></div>
+        <div class="detail">Rolling bands, summary payload, score module. Verify: pytest with synthetic 90-day data — known z-scores → known readiness.</div></div></div>
+      <div class="node"><div class="rail"><div class="dot">5</div><div class="line"></div></div>
+        <div class="nodebody"><div class="nodehead">Frontend <span class="tag">~2 days</span></div>
+        <div class="detail">React port of mockup (score strip, filter row, 4 rows, import page with drop zone + progress) against the real API. Verify: /run against seeded DB, screenshot both themes vs design/screenshots.</div></div></div>
+      <div class="node"><div class="rail"><div class="dot">6</div><div class="line"></div></div>
+        <div class="nodebody"><div class="nodehead">Deploy <span class="tag">Wannita · ~1 h</span></div>
+        <div class="detail">docker compose up on home machine, Tailscale IP, HAE Premium automation → <code>http://&lt;tailnet-ip&gt;:8000/api/ingest</code> with X-API-Key, hourly + on-wake sleep automation. Verify: sync pill goes green.</div></div></div>
+      <div class="node"><div class="rail"><div class="dot">7</div><div class="line"></div></div>
+        <div class="nodebody"><div class="nodehead">Backfill + shakedown <span class="tag">Wannita · ~1 h</span></div>
+        <div class="detail">Upload real export.zip via import page; eyeball every chart vs Health app values; tune score constants if readiness reads absurd.</div></div></div>
+    </div>
+
+    <div class="callout warn">
+      <div class="label">Risks watched during build</div>
+      HAE payload field names must be confirmed against a real device post at milestone 6 — fixtures
+      derive from docs, not ground truth; keep <code>ingest.py</code> tolerant (unknown metrics →
+      stored raw, never dropped). Late overnight data: scores computed on read handles it. OneDrive
+      path: SQLite volume lives in the Docker volume, NOT under OneDrive (file-locking corruption risk).
+    </div>
+
+    <h2>Explicitly out of v1</h2>
+    <p>Workout/GPS pages, noise + mindfulness UI (v2 — data already stored), auth UI (Tailscale is
+    the perimeter), multi-user, HTTPS (add via <code>tailscale serve</code> later if wanted).</p>
+
+  </main>
+  <script src="nav.js"></script>
+</body>
+</html>

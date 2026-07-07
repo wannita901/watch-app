@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Watch Dashboard — UI mockup</title>
+<style>
+  :root {
+    --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+    --accent:#2a78d6; --accent-wash:rgba(42,120,214,.10);
+    --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --good-text:#006300;
+    --stage-awake:#86b6ef; --stage-rem:#5598e7; --stage-core:#2a78d6; --stage-deep:#184f95;
+    --band:rgba(137,135,129,.14);
+  }
+  :root[data-theme="dark"] {
+    --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+    --accent:#3987e5; --accent-wash:rgba(57,135,229,.12);
+    --good-text:#0ca30c;
+    --stage-awake:#9ec5f4; --stage-rem:#6da7ec; --stage-core:#3987e5; --stage-deep:#184f95;
+    --band:rgba(137,135,129,.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink-2:#c3c2b7;
+      --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+      --accent:#3987e5; --accent-wash:rgba(57,135,229,.12); --good-text:#0ca30c;
+      --stage-awake:#9ec5f4; --stage-rem:#6da7ec; --stage-core:#3987e5; --stage-deep:#184f95;
+      --band:rgba(137,135,129,.18);
+    }
+  }
+  * { box-sizing:border-box; margin:0; }
+  body {
+    background:var(--page); color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding:28px 16px 60px;
+  }
+  .wrap { max-width:880px; margin:0 auto; }
+
+  /* header */
+  .top { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:6px; }
+  .top h1 { font-size:20px; font-weight:650; }
+  .top .date { color:var(--ink-2); }
+  .top .spacer { flex:1; }
+  .pill {
+    display:inline-flex; align-items:center; gap:7px; font-size:13px; color:var(--ink-2);
+    background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:4px 12px;
+  }
+  .pill .dot { width:8px; height:8px; border-radius:50%; background:var(--good); }
+  button.ghost {
+    font:inherit; font-size:13px; color:var(--ink-2); background:none;
+    border:1px solid var(--border); border-radius:8px; padding:4px 12px; cursor:pointer;
+  }
+  button.ghost:hover { background:var(--accent-wash); }
+
+  /* score strip */
+  .scores { display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:12px; margin:18px 0; }
+  @media (max-width:640px){ .scores { grid-template-columns:1fr; } }
+  .tile {
+    background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 18px;
+  }
+  .tile .label { font-size:13px; color:var(--ink-2); }
+  .tile .value { font-size:30px; font-weight:600; margin-top:2px; }
+  .tile.hero .value { font-size:52px; line-height:1.1; }
+  .tile .delta { font-size:13px; margin-left:6px; font-weight:500; }
+  .tile .delta.up { color:var(--good-text); }
+  .tile .delta.down { color:var(--ink-2); }
+  .tile .sub { font-size:13px; color:var(--muted); margin-top:4px; }
+  .meter { height:6px; border-radius:3px; background:var(--accent-wash); margin-top:12px; overflow:hidden; }
+  .meter > div { height:100%; border-radius:3px; background:var(--accent); }
+  .tile svg { display:block; margin-top:10px; }
+
+  /* filter row */
+  .filters { display:flex; gap:8px; align-items:center; margin:6px 0 14px; }
+  .filters .fbtn {
+    font:inherit; font-size:13px; padding:4px 12px; border-radius:8px; cursor:pointer;
+    border:1px solid var(--border); background:var(--surface); color:var(--ink-2);
+  }
+  .filters .fbtn.active { color:var(--ink); font-weight:600; border-color:var(--accent); }
+  .filters .note { font-size:12px; color:var(--muted); margin-left:auto; }
+
+  /* domain rows */
+  .row {
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    margin-bottom:12px; overflow:hidden;
+  }
+  .rowhead {
+    display:grid; grid-template-columns:34px 1fr auto 150px 22px; gap:12px; align-items:center;
+    padding:14px 18px; cursor:pointer; user-select:none;
+  }
+  .rowhead:hover { background:var(--accent-wash); }
+  .rowhead .icon { font-size:20px; text-align:center; }
+  .rowhead .name { font-weight:600; }
+  .rowhead .headline { font-size:14px; color:var(--ink-2); text-align:right; }
+  .rowhead .headline b { color:var(--ink); font-weight:600; }
+  .rowhead .chev { color:var(--muted); transition:transform .15s; }
+  .row.open .chev { transform:rotate(90deg); }
+  .rowbody { display:none; padding:4px 18px 18px; border-top:1px solid var(--grid); }
+  .row.open .rowbody { display:block; }
+  .rowbody h3 { font-size:14px; font-weight:600; margin:14px 0 8px; }
+  .charts2 { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .charts3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:18px; }
+  @media (max-width:640px){ .charts2,.charts3 { grid-template-columns:1fr; } }
+
+  .legend { display:flex; gap:16px; flex-wrap:wrap; font-size:13px; color:var(--ink-2); margin:6px 0 2px; }
+  .legend .key { display:inline-flex; align-items:center; gap:6px; }
+  .legend .sw { width:10px; height:10px; border-radius:3px; }
+
+  details.tbl { margin-top:8px; }
+  details.tbl summary { font-size:13px; color:var(--muted); cursor:pointer; }
+  details.tbl table { border-collapse:collapse; margin-top:8px; font-size:13px; }
+  details.tbl th, details.tbl td {
+    padding:4px 12px 4px 0; text-align:right; font-variant-numeric:tabular-nums;
+    border-bottom:1px solid var(--grid); color:var(--ink-2);
+  }
+  details.tbl th { color:var(--muted); font-weight:500; }
+  details.tbl td:first-child, details.tbl th:first-child { text-align:left; }
+
+  .foot { margin-top:22px; font-size:13px; color:var(--muted); display:flex; gap:16px; flex-wrap:wrap; }
+
+  /* tooltip */
+  #tip {
+    position:fixed; pointer-events:none; display:none; z-index:10;
+    background:var(--surface); border:1px solid var(--border); border-radius:8px;
+    padding:6px 10px; font-size:13px; color:var(--ink); box-shadow:0 4px 14px rgba(0,0,0,.12);
+  }
+  #tip .t { color:var(--muted); font-size:12px; }
+  svg text { font:11px system-ui,-apple-system,"Segoe UI",sans-serif; fill:var(--muted); }
+  svg text.endlab { font-weight:600; fill:var(--ink-2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <h1>Watch Dashboard</h1>
+    <span class="date">Mon 7 Jul 2026</span>
+    <span class="spacer"></span>
+    <span class="pill" title="Last successful ingest from Health Auto Export"><span class="dot"></span>synced 07:42</span>
+    <button class="ghost" onclick="alert('Mock: upload export.zip or HAE JSON — manual import page (v1).')">⬆ Import file</button>
+    <button class="ghost" id="themeBtn">◐ Theme</button>
+  </div>
+
+  <div class="scores">
+    <div class="tile hero">
+      <div class="label">Readiness</div>
+      <div><span class="value">78</span><span class="delta up">▲ 6 vs 60-day baseline</span></div>
+      <div class="meter"><div style="width:78%"></div></div>
+      <div class="sub">Overnight HRV and resting heart rate both inside your normal range.</div>
+    </div>
+    <div class="tile">
+      <div class="label">Sleep score</div>
+      <div><span class="value">84</span><span class="delta up">▲ 3</span></div>
+      <svg id="spark-sleepscore" width="140" height="30"></svg>
+    </div>
+    <div class="tile">
+      <div class="label">Exercise this week</div>
+      <div><span class="value">142</span><span class="delta down">min · goal 150</span></div>
+      <svg id="spark-exercise" width="140" height="30"></svg>
+    </div>
+  </div>
+
+  <div class="filters" id="filters">
+    <button class="fbtn" data-days="7">7d</button>
+    <button class="fbtn active" data-days="30">30d</button>
+    <button class="fbtn" data-days="90">90d</button>
+    <span class="note">range applies to all charts below</span>
+  </div>
+
+  <div id="rows"></div>
+
+  <div class="foot">
+    <span>Coming in v2: workouts &amp; GPS · noise · mindfulness</span>
+    <span>All data on this page is generated sample data.</span>
+  </div>
+</div>
+<div id="tip"></div>
+
+<script>
+/* ---------- theme ---------- */
+document.getElementById('themeBtn').onclick = () => {
+  const r = document.documentElement;
+  const dark = getComputedStyle(document.body).backgroundColor !== 'rgb(249, 249, 247)';
+  r.setAttribute('data-theme', dark ? 'light' : 'dark');
+  render();
+};
+
+/* ---------- deterministic sample data (seeded, 90 days ending 2026-07-07) ---------- */
+function mulberry(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0;
+  let t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t;
+  return ((t^t>>>14)>>>0)/4294967296; }; }
+const rnd = mulberry(42);
+const N = 90;
+const days = Array.from({length:N}, (_,i)=>{
+  const d = new Date(2026,6,7); d.setDate(d.getDate()-(N-1-i));
+  return d.toISOString().slice(5,10).replace('-','/');
+});
+function series(base, wobble, drift=0){
+  let v = base; return Array.from({length:N}, (_,i)=>{
+    v += (rnd()-0.5)*wobble + drift; return v; });
+}
+const rhr   = series(53, 1.6).map(v=>Math.round(v*10)/10);
+const hrv   = series(46, 5).map(v=>Math.round(v));
+const steps = Array.from({length:N},()=>Math.round(4000+rnd()*9000));
+const temp  = series(0, 0.16).map(v=>Math.round(v*100)/100);
+const spo2  = Array.from({length:N},()=>Math.round((96+rnd()*2.4)*10)/10);
+const resp  = series(14.5, 0.5).map(v=>Math.round(v*10)/10);
+const sleepScore = series(78, 7).map(v=>Math.round(Math.min(98,Math.max(45,v))));
+const exercise = Array.from({length:N},()=>Math.round(rnd()*45));
+/* sleep stages, hours per night */
+const nights = Array.from({length:N},()=>{
+  const deep = 0.8+rnd()*0.7, core = 3.4+rnd()*1.2, rem = 1.2+rnd()*0.8, awake = 0.15+rnd()*0.5;
+  return {deep:+deep.toFixed(2), core:+core.toFixed(2), rem:+rem.toFixed(2), awake:+awake.toFixed(2)};
+});
+
+function rolling(arr, w=30){ /* mean ± 1.5 sd band */
+  return arr.map((_,i)=>{
+    const s = arr.slice(Math.max(0,i-w), i+1);
+    const m = s.reduce((a,b)=>a+b,0)/s.length;
+    const sd = Math.sqrt(s.reduce((a,b)=>a+(b-m)**2,0)/s.length);
+    return [m-1.5*sd, m+1.5*sd];
+  });
+}
+
+/* ---------- svg helpers ---------- */
+const CS = getComputedStyle(document.documentElement);
+const css = v => CS.getPropertyValue(v).trim();
+const tip = document.getElementById('tip');
+function showTip(html, x, y){ tip.innerHTML = html; tip.style.display='block';
+  tip.style.left = Math.min(x+14, innerWidth-180)+'px'; tip.style.top = (y+14)+'px'; }
+function hideTip(){ tip.style.display='none'; }
+
+function sparkline(id, values){
+  const svg = document.getElementById(id); if(!svg) return;
+  const w=140,h=30, min=Math.min(...values), max=Math.max(...values);
+  const x=i=>i/(values.length-1)*(w-8)+2, y=v=>h-4-((v-min)/(max-min||1))*(h-8);
+  const pts = values.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
+  svg.innerHTML = `<polyline points="${pts}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linejoin="round"/>
+    <circle cx="${x(values.length-1)}" cy="${y(values.at(-1))}" r="3.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>`;
+}
+
+/* line chart with rolling baseline band + crosshair tooltip */
+function bandChart(el, vals, opts){
+  const {label, unit, days:dd} = opts;
+  const w = el.clientWidth || 380, h = 150, pl=34, pr=44, pt=10, pb=20;
+  const band = rolling(vals);
+  const lo = Math.min(...vals, ...band.map(b=>b[0])), hi = Math.max(...vals, ...band.map(b=>b[1]));
+  const x=i=>pl+i/(vals.length-1)*(w-pl-pr), y=v=>pt+(1-(v-lo)/(hi-lo||1))*(h-pt-pb);
+  const line = vals.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
+  const bandPath = band.map((b,i)=>`${i?'L':'M'}${x(i)},${y(b[1])}`).join('') +
+                   band.map((b,i)=>`L${x(band.length-1-i)},${y(band[band.length-1-i][0])}`).join('') + 'Z';
+  const ticks = [lo, (lo+hi)/2, hi].map(v=>Math.round(v*10)/10);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('width', w); svg.setAttribute('height', h);
+  svg.innerHTML =
+    ticks.map(v=>`<line x1="${pl}" x2="${w-pr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)" stroke-width="1"/>
+      <text x="${pl-6}" y="${y(v)+4}" text-anchor="end">${v}</text>`).join('') +
+    `<path d="${bandPath}" fill="var(--band)"/>
+     <polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+     <circle cx="${x(vals.length-1)}" cy="${y(vals.at(-1))}" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>
+     <text class="endlab" x="${x(vals.length-1)+8}" y="${y(vals.at(-1))+4}">${vals.at(-1)}${unit}</text>
+     <line id="ch" y1="${pt}" y2="${h-pb}" stroke="var(--axis)" stroke-width="1" visibility="hidden"/>
+     <text x="${pl}" y="${h-5}">${dd[0]}</text><text x="${w-pr}" y="${h-5}" text-anchor="end">${dd.at(-1)}</text>`;
+  el.appendChild(svg);
+  const ch = svg.querySelector('#ch');
+  svg.addEventListener('mousemove', e=>{
+    const r = svg.getBoundingClientRect();
+    const i = Math.round((e.clientX-r.left-pl)/(w-pl-pr)*(vals.length-1));
+    if(i<0||i>=vals.length){ hideTip(); ch.setAttribute('visibility','hidden'); return; }
+    ch.setAttribute('x1',x(i)); ch.setAttribute('x2',x(i)); ch.setAttribute('visibility','visible');
+    showTip(`<div class="t">${dd[i]}</div>${label}: <b>${vals[i]}${unit}</b><div class="t">normal ${band[i][0].toFixed(1)}–${band[i][1].toFixed(1)}</div>`, e.clientX, e.clientY);
+  });
+  svg.addEventListener('mouseleave', ()=>{ hideTip(); ch.setAttribute('visibility','hidden'); });
+}
+
+/* stacked sleep bars (ordinal ramp: awake lightest → deep darkest) */
+function sleepBars(el, data, dd){
+  const stages = [['deep','var(--stage-deep)','Deep'],['core','var(--stage-core)','Core'],
+                  ['rem','var(--stage-rem)','REM'],['awake','var(--stage-awake)','Awake']];
+  const w = el.clientWidth || 780, h = 170, pl=30, pr=8, pt=8, pb=20;
+  const n = data.length;
+  const slot = (w-pl-pr)/n, bw = Math.min(24, slot-2);
+  const maxH = Math.max(...data.map(d=>d.deep+d.core+d.rem+d.awake));
+  const yScale = v => v/maxH*(h-pt-pb);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('width', w); svg.setAttribute('height', h);
+  let inner = [4,8].map(v=>`<line x1="${pl}" x2="${w-pr}" y1="${h-pb-yScale(v)}" y2="${h-pb-yScale(v)}" stroke="var(--grid)"/>
+     <text x="${pl-6}" y="${h-pb-yScale(v)+4}" text-anchor="end">${v}h</text>`).join('');
+  data.forEach((d,i)=>{
+    let yCur = h-pb;
+    const cx = pl + i*slot + (slot-bw)/2;
+    stages.forEach(([k,c],si)=>{
+      const hh = Math.max(yScale(d[k])-2, 1); yCur -= yScale(d[k]);
+      const isTop = si===stages.length-1;
+      inner += `<rect data-i="${i}" x="${cx}" y="${yCur}" width="${bw}" height="${hh}" fill="${c}"
+        rx="${isTop?3:0}" ry="${isTop?3:0}"/>`;
+    });
+  });
+  inner += `<text x="${pl}" y="${h-5}">${dd[0]}</text><text x="${w-pr}" y="${h-5}" text-anchor="end">${dd.at(-1)}</text>`;
+  svg.innerHTML = inner;
+  el.appendChild(svg);
+  svg.addEventListener('mousemove', e=>{
+    const t = e.target.closest('rect[data-i]'); if(!t){ hideTip(); return; }
+    const d = data[+t.dataset.i], tot=(d.deep+d.core+d.rem+d.awake).toFixed(1);
+    showTip(`<div class="t">${dd[+t.dataset.i]}</div><b>${tot}h</b> asleep<div class="t">deep ${d.deep}h · core ${d.core}h · REM ${d.rem}h · awake ${d.awake}h</div>`, e.clientX, e.clientY);
+  });
+  svg.addEventListener('mouseleave', hideTip);
+}
+
+/* step columns */
+function columns(el, vals, dd, goal){
+  const w = el.clientWidth || 780, h = 150, pl=38, pr=8, pt=8, pb=20;
+  const n=vals.length, slot=(w-pl-pr)/n, bw=Math.min(24, slot-2);
+  const maxV = Math.max(...vals, goal)*1.05;
+  const y=v=>h-pb-(v/maxV)*(h-pt-pb);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('width', w); svg.setAttribute('height', h);
+  svg.innerHTML =
+    [5000,10000].map(v=>`<line x1="${pl}" x2="${w-pr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/>
+      <text x="${pl-6}" y="${y(v)+4}" text-anchor="end">${v/1000}k</text>`).join('') +
+    vals.map((v,i)=>`<rect data-i="${i}" x="${pl+i*slot+(slot-bw)/2}" y="${y(v)}" width="${bw}" height="${h-pb-y(v)}" fill="var(--accent)" rx="3" ry="3"/>`).join('') +
+    `<line x1="${pl}" x2="${w-pr}" y1="${y(goal)}" y2="${y(goal)}" stroke="var(--axis)" stroke-width="1"/>
+     <text x="${pl+4}" y="${y(goal)-5}">goal ${goal/1000}k</text>
+     <text x="${pl}" y="${h-5}">${dd[0]}</text><text x="${w-pr}" y="${h-5}" text-anchor="end">${dd.at(-1)}</text>`;
+  el.appendChild(svg);
+  svg.addEventListener('mousemove', e=>{
+    const t = e.target.closest('rect[data-i]'); if(!t){ hideTip(); return; }
+    showTip(`<div class="t">${dd[+t.dataset.i]}</div><b>${vals[+t.dataset.i].toLocaleString()}</b> steps`, e.clientX, e.clientY);
+  });
+  svg.addEventListener('mouseleave', hideTip);
+}
+
+function tableView(rows, cols){
+  return `<details class="tbl"><summary>Table view</summary><table>
+    <tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr>
+    ${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}
+  </table></details>`;
+}
+
+/* ---------- page assembly ---------- */
+let rangeDays = 30;
+const rowsEl = document.getElementById('rows');
+const fmt = v => v.toLocaleString();
+
+function domainRows(){
+  const s = N-rangeDays, dd = days.slice(s);
+  const lastN = nights.at(-1), lastTot = (lastN.deep+lastN.core+lastN.rem).toFixed(1);
+  return [
+    { id:'sleep', icon:'🛌', name:'Sleep',
+      headline:`<b>${lastTot}h</b> last night · score <b>${sleepScore.at(-1)}</b>`,
+      spark: sleepScore.slice(s),
+      body(el){
+        el.insertAdjacentHTML('beforeend', `<h3>Stages per night</h3>
+          <div class="legend">
+            <span class="key"><span class="sw" style="background:var(--stage-deep)"></span>Deep</span>
+            <span class="key"><span class="sw" style="background:var(--stage-core)"></span>Core</span>
+            <span class="key"><span class="sw" style="background:var(--stage-rem)"></span>REM</span>
+            <span class="key"><span class="sw" style="background:var(--stage-awake)"></span>Awake</span>
+          </div><div class="c"></div>`);
+        sleepBars(el.querySelector('.c'), nights.slice(Math.max(s, N-30)), days.slice(Math.max(s, N-30)));
+        el.insertAdjacentHTML('beforeend', tableView(
+          nights.slice(N-7).map((d,i)=>[days.slice(N-7)[i], d.deep, d.core, d.rem, d.awake]),
+          ['night','deep h','core h','REM h','awake h']));
+      }},
+    { id:'heart', icon:'❤️', name:'Heart',
+      headline:`RHR <b>${rhr.at(-1)}</b> · HRV <b>${hrv.at(-1)} ms</b>`,
+      spark: hrv.slice(s),
+      body(el){
+        el.insertAdjacentHTML('beforeend', `<div class="charts2">
+          <div><h3>Resting heart rate <span style="color:var(--muted);font-weight:400">bpm · band = your 30-day normal</span></h3><div class="c1"></div></div>
+          <div><h3>HRV (SDNN) <span style="color:var(--muted);font-weight:400">ms · overnight</span></h3><div class="c2"></div></div>
+        </div>`);
+        bandChart(el.querySelector('.c1'), rhr.slice(s), {label:'RHR', unit:'', days:dd});
+        bandChart(el.querySelector('.c2'), hrv.slice(s), {label:'HRV', unit:' ms', days:dd});
+        el.insertAdjacentHTML('beforeend', tableView(
+          days.slice(N-7).map((d,i)=>[d, rhr.slice(N-7)[i], hrv.slice(N-7)[i]]),
+          ['day','RHR bpm','HRV ms']));
+      }},
+    { id:'activity', icon:'🏃', name:'Activity',
+      headline:`<b>${fmt(steps.at(-1))}</b> steps today`,
+      spark: steps.slice(s),
+      body(el){
+        el.insertAdjacentHTML('beforeend', `<h3>Steps per day</h3><div class="c"></div>`);
+        columns(el.querySelector('.c'), steps.slice(Math.max(s,N-30)), days.slice(Math.max(s,N-30)), 8000);
+        el.insertAdjacentHTML('beforeend', tableView(
+          days.slice(N-7).map((d,i)=>[d, fmt(steps.slice(N-7)[i]), exercise.slice(N-7)[i]+' min']),
+          ['day','steps','exercise']));
+      }},
+    { id:'body', icon:'🌡️', name:'Body & vitals',
+      headline:`temp <b>${temp.at(-1)>=0?'+':''}${temp.at(-1)}°</b> · SpO₂ <b>${spo2.at(-1)}%</b>`,
+      spark: temp.slice(s),
+      body(el){
+        el.insertAdjacentHTML('beforeend', `<div class="charts3">
+          <div><h3>Wrist temp deviation °C</h3><div class="c1"></div></div>
+          <div><h3>SpO₂ % (sleep avg)</h3><div class="c2"></div></div>
+          <div><h3>Respiratory rate /min</h3><div class="c3"></div></div>
+        </div>`);
+        bandChart(el.querySelector('.c1'), temp.slice(s), {label:'Deviation', unit:'°', days:dd});
+        bandChart(el.querySelector('.c2'), spo2.slice(s), {label:'SpO₂', unit:'%', days:dd});
+        bandChart(el.querySelector('.c3'), resp.slice(s), {label:'Resp rate', unit:'', days:dd});
+        el.insertAdjacentHTML('beforeend', tableView(
+          days.slice(N-7).map((d,i)=>[d, temp.slice(N-7)[i]+'°', spo2.slice(N-7)[i]+'%', resp.slice(N-7)[i]]),
+          ['day','temp dev','SpO₂','resp']));
+      }},
+  ];
+}
+
+const openState = { sleep:true }; /* sleep open by default so the mockup shows depth */
+
+function render(){
+  rowsEl.innerHTML = '';
+  domainRows().forEach(r=>{
+    const div = document.createElement('div');
+    div.className = 'row' + (openState[r.id] ? ' open' : '');
+    div.innerHTML = `<div class="rowhead">
+        <span class="icon">${r.icon}</span><span class="name">${r.name}</span>
+        <span class="headline">${r.headline}</span>
+        <svg class="spark" width="150" height="30" id="spk-${r.id}"></svg>
+        <span class="chev">›</span>
+      </div><div class="rowbody"></div>`;
+    rowsEl.appendChild(div);
+    div.querySelector('.rowhead').onclick = ()=>{ openState[r.id]=!openState[r.id]; render(); };
+    if(openState[r.id]) r.body(div.querySelector('.rowbody'));
+    sparkline(`spk-${r.id}`, r.spark);
+  });
+  sparkline('spark-sleepscore', sleepScore.slice(N-30));
+  sparkline('spark-exercise', exercise.slice(N-30));
+}
+
+document.getElementById('filters').addEventListener('click', e=>{
+  const b = e.target.closest('.fbtn'); if(!b) return;
+  document.querySelectorAll('.fbtn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); rangeDays = +b.dataset.days; render();
+});
+
+render();
+</script>
+</body>
+</html>

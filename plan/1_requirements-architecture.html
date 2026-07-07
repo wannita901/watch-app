@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Requirements &amp; Architecture — Watch Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- The sidebar is injected by nav.js — do NOT hand-write it here. -->
+  <main class="content">
+    <header>
+      <div class="eyebrow">Phase 2 · Requirements</div>
+      <h1>Requirements &amp; Architecture</h1>
+      <div class="meta">2026-07-07 · decided via deep research + requirements grilling · research report: <code>research/apple-watch-dashboard-research.md</code></div>
+    </header>
+
+    <p class="lead">
+      A single-user, self-hosted web dashboard for Apple Watch health data: wellness trends plus a
+      full quantified-self archive. Apple provides no cloud API, so data is pushed from the iPhone
+      by the Health Auto Export app into our own receiver.
+    </p>
+
+    <div class="callout good">
+      <div class="label">Locked decisions (grilling, 2026-07-07)</div>
+      Purpose: <b>wellness trends + quantified-self archive</b>. Ingestion: <b>Health Auto Export
+      auto-sync + manual file import (export.zip / HAE JSON upload in UI, repeatable)</b>. Hosting:
+      <b>Docker on a home machine, reachable via Tailscale only</b> (no public exposure). Stack:
+      <b>FastAPI + SQLite + React (Recharts)</b>. Watch: <b>Series 8+ class</b> → full metric set
+      incl. wrist temperature.
+    </div>
+
+    <div class="callout">
+      <div class="label">Superseded in part</div>
+      Charts: Recharts dropped in favour of hand-rolled SVG components ported from the mockup —
+      see <a href="3_build-plan.html">page 3 · Build Plan v1</a>.
+    </div>
+
+    <h2>Constraints from research</h2>
+    <table>
+      <thead><tr><th>Fact</th><th>Consequence for design</th></tr></thead>
+      <tbody>
+        <tr><td>No Apple web/cloud API for HealthKit; data on-device only</td><td>iPhone-side pusher is mandatory; HAE app chosen over custom iOS app ($99/yr + weeks of effort)</td></tr>
+        <tr><td>iOS blocks Health reads while phone locked; background sync best-effort</td><td>Expect hourly-ish freshness with overnight gaps → design for <b>daily-granularity insight</b>, not real-time</td></tr>
+        <tr><td>Apple-derived scores (Sleep Score, Vitals ranges, Training Load class) not third-party readable</td><td>Recompute composite scores ourselves from raw inputs (all readable)</td></tr>
+        <tr><td>HRV samples are sporadic (a handful/day, mostly sleep/Breathe)</td><td>Readiness score uses overnight aggregates vs rolling baseline, not intraday HRV</td></tr>
+        <tr><td>Large HAE payloads (GPS workouts) can be killed by iOS</td><td>Ingest endpoint must accept batched/partial posts idempotently</td></tr>
+        <tr><td>GPS routes = most privacy-sensitive field (home location)</td><td>Tailscale-only perimeter; API-key header on ingest; no public exposure ever</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Architecture</h2>
+    <div class="flow">
+      <div class="node">
+        <div class="rail"><div class="dot">1</div><div class="line"></div></div>
+        <div class="nodebody">
+          <div class="nodehead">Apple Watch → iPhone HealthKit <span class="tag">Apple</span></div>
+          <div class="detail">Watch syncs samples to the iPhone Health store automatically.</div>
+        </div>
+      </div>
+      <div class="node">
+        <div class="rail"><div class="dot">2</div><div class="line"></div></div>
+        <div class="nodebody">
+          <div class="nodehead">Health Auto Export app <span class="tag">$24.99 lifetime</span> + manual import <span class="tag">always available</span></div>
+          <div class="detail">Two routes into the receiver, same idempotent ingest: (a) HAE scheduled automation POSTs JSON over Tailscale; (b) manual upload of Health app export.zip (or HAE JSON/CSV file) through the dashboard UI — used for initial backfill, repairing sync gaps, or running entirely without HAE. Streaming XML parser handles multi-hundred-MB exports; idempotent upserts make re-imports safe.</div>
+        </div>
+      </div>
+      <div class="node">
+        <div class="rail"><div class="dot">3</div><div class="line"></div></div>
+        <div class="nodebody">
+          <div class="nodehead">FastAPI receiver + SQLite <span class="tag">Docker</span></div>
+          <div class="detail">/ingest endpoint (API-key header, idempotent upserts keyed on metric+timestamp+source). Score computation (sleep score, readiness) as query-time or nightly jobs in Python. SQLite file = trivial backup.</div>
+        </div>
+      </div>
+      <div class="node">
+        <div class="rail"><div class="dot">4</div><div class="line"></div></div>
+        <div class="nodebody">
+          <div class="nodehead">React + Recharts dashboard <span class="tag">Tailscale-only</span></div>
+          <div class="detail">Served by the same container. No login page — Tailscale is the auth perimeter (single user). Viewable from any of Wannita's devices on the tailnet.</div>
+        </div>
+      </div>
+    </div>
+
+    <h2>Scope</h2>
+    <table>
+      <thead><tr><th>Feature</th><th>v1</th><th>v2</th></tr></thead>
+      <tbody>
+        <tr><td>Sleep panel: nightly duration, stage composition, bedtime consistency, 30/90-day trends</td><td><span class="yes">✓</span></td><td></td></tr>
+        <tr><td>Heart panel: resting HR + HRV vs rolling 30/60-day baseline, anomaly bands</td><td><span class="yes">✓</span></td><td></td></tr>
+        <tr><td>Activity panel: steps, exercise minutes, stand hours, active energy, weekly patterns</td><td><span class="yes">✓</span></td><td></td></tr>
+        <tr><td>Body &amp; vitals panel: wrist-temp deviation, SpO2, respiratory rate, VO2max, weight</td><td><span class="yes">✓</span></td><td></td></tr>
+        <tr><td>Baseline bands on every metric (rolling personal normal range, out-of-range highlight)</td><td><span class="yes">✓</span></td><td></td></tr>
+        <tr><td>Composite scores: recomputed sleep score + readiness score (HRV+RHR deviation), 0–100</td><td><span class="yes">✓</span></td><td></td></tr>
+        <tr><td>Manual file import via dashboard UI: upload export.zip (or HAE JSON/CSV) any time — backfill, gap-repair, or HAE-free operation</td><td><span class="yes">✓</span></td><td></td></tr>
+        <tr><td>Archive/explore: raw ingestion of ALL HAE metrics, queryable</td><td><span class="yes">✓</span> store</td><td>explore UI</td></tr>
+        <tr><td>Workout detail pages: GPS route map, HR curve, pace</td><td><span class="no">✗</span></td><td><span class="yes">✓</span></td></tr>
+        <tr><td>Noise exposure + mindful minutes trends</td><td><span class="no">✗</span></td><td><span class="yes">✓</span></td></tr>
+        <tr><td>Cycle tracking overlay</td><td><span class="no">✗</span></td><td>not planned</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Defaults taken without asking (revisit if they chafe)</h2>
+    <ul>
+      <li><b>No dashboard login</b> — Tailscale is the perimeter; ingest still requires an API-key header.</li>
+      <li><b>Store raw samples, aggregate at query time</b> — keeps archive lossless; HAE set to fine-grained aggregation for HR, defaults elsewhere.</li>
+      <li><b>SQLite over InfluxDB/Postgres</b> — single user, single writer; millions of rows are fine.</li>
+      <li><b>Score formulas</b>: readiness = weighted z-scores of overnight HRV, RHR, sleep duration vs 60-day baseline (Training Today / Athlytic pattern); sleep score = duration + stage mix + consistency (Apple's published inputs). Tunable constants, kept in one module.</li>
+    </ul>
+
+    <div class="callout warn">
+      <div class="label">Risks</div>
+      (1) HAE automations silently stall under iOS background restrictions — dashboard should show a
+      "last sync" staleness indicator prominently. (2) HAE is closed-source indie software — payload
+      spec is open and receivers are swappable, so migration cost is low. (3) Overnight data arrives
+      in a morning burst after first unlock — score computation must tolerate late-arriving samples.
+    </div>
+
+    <h2>Open items (for the build plan, page 2)</h2>
+    <ul>
+      <li>DB schema: one wide samples table vs per-metric tables; unit normalization from HAE payloads.</li>
+      <li>Exact HAE automation config (interval, aggregation per metric group, batching).</li>
+      <li>Which home machine runs Docker (always-on Mac vs mini PC) — user to confirm at build time.</li>
+      <li>Backfill parser: adapt <code>k0rventen/apple-health-grafana</code> importer vs write ~200-line streaming <code>iterparse</code> script.</li>
+    </ul>
+
+  </main>
+  <script src="nav.js"></script>
+</body>
+</html>
