@@ -15,6 +15,11 @@ docker compose up -d --build
 open http://localhost:8000
 ```
 
+The server picks the key up from `.env` automatically. The two *clients* need it pasted in
+manually, once each: the Health Auto Export automation (as an `X-API-Key` header, step 3 below)
+and the dashboard's Import page (remembered by the browser after the first use). To see your key
+later: `cat .env`.
+
 SQLite lives in the `watch-data` Docker volume (deliberately not under OneDrive — sync
 would corrupt it). Backup: `docker compose cp watch-app:/data/watch.db ./backup.db`.
 
