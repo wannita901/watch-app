@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { getSummary, getSeries, getSleep, uploadImport, getImportJob } from './api'
+import { getSummary, getSeries, getSleep, uploadImport, getImportJob, getWorkouts, getWorkout } from './api'
 import { Sparkline, BandChart, SleepBars, Columns, TableView } from './charts'
 import { fmtValue, fmtHours } from './chart-utils'
+import WorkoutMap from './WorkoutMap'
 
 const RANGES = [7, 30, 90]
 
@@ -123,6 +124,75 @@ function BodyVitalsBody({ days }) {
   )
 }
 
+function WorkoutsBody({ days }) {
+  const [list, setList] = useState(null)
+  const [detail, setDetail] = useState(null)
+  useEffect(() => {
+    getWorkouts(days).then((r) => { setList(r.workouts); setDetail(null) })
+  }, [days])
+  if (!list) return <p className="empty">Loading…</p>
+  if (!list.length) return <p className="empty">No workouts in this range.</p>
+  const hrPoints = detail?.hr?.map((p) => ({
+    date: p.ts.slice(11, 16), value: p.value, lo: p.value, hi: p.value,
+  }))
+  return (
+    <>
+      <table className="wlist">
+        <thead>
+          <tr><th>date</th><th>type</th><th>duration</th><th>distance</th><th>energy</th><th></th></tr>
+        </thead>
+        <tbody>
+          {list.slice(0, 15).map((w) => (
+            <tr key={w.id}
+              className={detail?.id === w.id ? 'sel' : ''}
+              onClick={() => getWorkout(w.id).then(setDetail)}>
+              <td>{w.start_ts?.slice(0, 10)}</td>
+              <td>{w.type}</td>
+              <td>{w.duration_s ? Math.round(w.duration_s / 60) + ' min' : '–'}</td>
+              <td>{w.distance_km ? fmtValue(w.distance_km) + ' km' : '–'}</td>
+              <td>{w.energy_kcal ? Math.round(w.energy_kcal) + ' kcal' : '–'}</td>
+              <td>{w.has_route ? '🗺' : ''}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {detail && (
+        <div className="wdetail">
+          <h3>{detail.type} · {detail.start_ts?.slice(0, 16)}</h3>
+          <WorkoutMap route={detail.route} />
+          {hrPoints?.length > 1 && (
+            <>
+              <h3>Heart rate <span className="soft">bpm during workout</span></h3>
+              <BandChart points={hrPoints} label="HR" w={520} />
+            </>
+          )}
+          {!detail.route && !(hrPoints?.length > 1) && (
+            <p className="empty">No route or in-workout heart rate stored for this one.</p>
+          )}
+        </div>
+      )}
+    </>
+  )
+}
+
+function NoiseMindBody({ days }) {
+  const [env, setEnv] = useState(null)
+  const [phones, setPhones] = useState(null)
+  const [mind, setMind] = useState(null)
+  useEffect(() => {
+    getSeries('environmental_audio_exposure', days).then((r) => setEnv(r.points))
+    getSeries('headphone_audio_exposure', days).then((r) => setPhones(r.points))
+    getSeries('mindful_minutes', days).then((r) => setMind(r.points))
+  }, [days])
+  return (
+    <div className="charts3">
+      <div><h3>Environment <span className="soft">dB(A) daily avg</span></h3><BandChart points={env} label="Noise" unit=" dB" w={250} /></div>
+      <div><h3>Headphones <span className="soft">dB(A) daily avg</span></h3><BandChart points={phones} label="Headphones" unit=" dB" w={250} /></div>
+      <div><h3>Mindful minutes</h3><Columns points={mind?.slice(-30)} w={250} unit="min" grid={[10, 30]} /></div>
+    </div>
+  )
+}
+
 function ImportPage({ onBack }) {
   const [apiKey, setApiKey] = useState(localStorage.getItem('apiKey') || '')
   const [job, setJob] = useState(null)
@@ -185,6 +255,7 @@ function ImportPage({ onBack }) {
 export default function App() {
   const [days, setDays] = useState(30)
   const [summary, setSummary] = useState(null)
+  const [workoutCount, setWorkoutCount] = useState(null)
   const [open, setOpen] = useState({ sleep: true })
   const [page, setPage] = useState('dash')
   const [theme, setTheme] = useState(localStorage.getItem('theme') || '')
@@ -196,7 +267,10 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
-    if (page === 'dash') getSummary(days).then(setSummary).catch(() => setSummary(null))
+    if (page === 'dash') {
+      getSummary(days).then(setSummary).catch(() => setSummary(null))
+      getWorkouts(days).then((r) => setWorkoutCount(r.workouts.length)).catch(() => {})
+    }
   }, [days, page])
 
   if (page === 'import') return <div className="wrap"><ImportPage onBack={() => setPage('dash')} /></div>
@@ -254,14 +328,25 @@ export default function App() {
         <ActivityBody days={days} />
       </DomainRow>
 
+      <DomainRow icon="🏋️" name="Workouts" spark={undefined}
+        headline={workoutCount == null ? '' : `<b>${workoutCount}</b> in range`}
+        open={!!open.workouts} onToggle={() => setOpen((o) => ({ ...o, workouts: !o.workouts }))}>
+        <WorkoutsBody days={days} />
+      </DomainRow>
+
       <DomainRow icon="🌡️" name="Body & vitals" spark={d?.body.spark}
         headline={`temp <b>${d?.body.temp_dev == null ? '–' : (d.body.temp_dev >= 0 ? '+' : '') + d.body.temp_dev + '°'}</b> · SpO₂ <b>${d?.body.spo2 == null ? '–' : Math.round(d.body.spo2 * 100) + '%'}</b>`}
         open={!!open.body} onToggle={() => setOpen((o) => ({ ...o, body: !o.body }))}>
         <BodyVitalsBody days={days} />
       </DomainRow>
 
+      <DomainRow icon="🎧" name="Noise & mind" spark={undefined} headline=""
+        open={!!open.noise} onToggle={() => setOpen((o) => ({ ...o, noise: !o.noise }))}>
+        <NoiseMindBody days={days} />
+      </DomainRow>
+
       <div className="foot">
-        <span>Coming in v2: workouts &amp; GPS · noise · mindfulness</span>
+        <span>All data stays on this machine.</span>
       </div>
     </div>
   )

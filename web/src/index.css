@@ -138,3 +138,13 @@ svg text.endlab { font-weight:600; fill:var(--ink-2); }
 .ok { color:var(--good-text); }
 .err { color:var(--crit); }
 .importpage button { margin-top:10px; }
+
+/* v2: workouts */
+table.wlist { border-collapse:collapse; font-size:13px; margin-top:10px; width:100%; max-width:640px; }
+table.wlist th, table.wlist td { padding:5px 14px 5px 0; text-align:left; border-bottom:1px solid var(--grid); color:var(--ink-2); }
+table.wlist th { color:var(--muted); font-weight:500; }
+table.wlist tbody tr { cursor:pointer; }
+table.wlist tbody tr:hover { background:var(--accent-wash); }
+table.wlist tbody tr.sel td { color:var(--ink); font-weight:600; }
+.wdetail { margin-top:14px; }
+.workout-map { height:280px; max-width:640px; border-radius:12px; margin:8px 0 14px; border:1px solid var(--border); }

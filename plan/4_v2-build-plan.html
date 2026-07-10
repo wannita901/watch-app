@@ -20,6 +20,15 @@
     </p>
 
     <div class="callout good">
+      <div class="label">Status — implemented 2026-07-10</div>
+      All 7 items built TDD same day (47 backend + 12 frontend tests green). Live-verified with
+      seeded data: workout list → detail with OSM route map + in-workout HR curve, noise/headphone
+      dB bands, mindful-minutes columns — screenshot <code>design/app-v2.png</code>. To go live:
+      <code>docker compose up -d --build</code>, then re-import export.zip once (routes attach on
+      import; earlier imports predate the route parser).
+    </div>
+
+    <div class="callout good">
       <div class="label">Decisions</div>
       (1) <b>Maps: Leaflet + OpenStreetMap tiles</b> — only new frontend dependency; hand-rolled
       maps fail the sanity bar, SVG-only routes lose all context. Tiles need internet; fine for a

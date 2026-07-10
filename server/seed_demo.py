@@ -3,6 +3,7 @@
 Usage: DB_PATH=/tmp/demo.db uv run python seed_demo.py
 """
 
+import math
 import random
 from datetime import date, datetime, timedelta, timezone
 
@@ -46,6 +47,35 @@ def main():
                 "demo",
             ),
         )
+        samples += [
+            ("environmental_audio_exposure", f"{iso} 12:00:00 +1000", round(random.uniform(55, 78), 1), "dBASPL", "demo"),
+            ("headphone_audio_exposure", f"{iso} 15:00:00 +1000", round(random.uniform(50, 72), 1), "dBASPL", "demo"),
+        ]
+        if random.random() < 0.4:
+            samples.append(("mindful_minutes", f"{iso} 08:10:00 +1000", random.choice([5, 10, 12]), "min", "demo"))
+
+    # a few workouts, most recent with a route + in-workout HR
+    import json as _json
+
+    for k, d in enumerate(days[-14::4]):
+        iso = d.isoformat()
+        start, end = f"{iso} 18:00:00 +1000", f"{iso} 18:42:00 +1000"
+        route = [
+            [-37.85 + 0.002 * math.sin(i / 8), 145.115 + 0.0012 * i]
+            for i in range(40)
+        ]
+        for m in range(0, 42, 2):
+            samples.append(
+                ("heart_rate", f"{iso} 18:{m:02d}:30 +1000",
+                 round(140 + 18 * math.sin(m / 6) + random.uniform(-4, 4)), "bpm", "demo")
+            )
+        db.upsert_workout(
+            conn,
+            (f"Running|{start}", "Running", start, end, 42 * 60.0,
+             round(random.uniform(320, 400)), round(random.uniform(4.8, 5.6), 2),
+             152.0, "{}", _json.dumps(route)),
+        )
+
     db.upsert_samples(conn, samples)
     db.log_ingest(
         conn,

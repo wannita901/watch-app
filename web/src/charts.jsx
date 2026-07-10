@@ -152,7 +152,7 @@ export function SleepBars({ nights, w = 780, h = 170 }) {
   )
 }
 
-export function Columns({ points, goal, w = 780, h = 150 }) {
+export function Columns({ points, goal, w = 780, h = 150, unit = 'steps', grid = [5000, 10000] }) {
   const [tip, show, hide] = useTip()
   if (!points?.length) return <p className="empty">No data yet.</p>
   const pl = 40, pr = 8, pt = 8, pb = 20
@@ -163,10 +163,10 @@ export function Columns({ points, goal, w = 780, h = 150 }) {
   return (
     <div className="chartbox">
       <svg width={w} height={h} onMouseLeave={hide}>
-        {[5000, 10000].filter((v) => v < maxV).map((v) => (
+        {grid.filter((v) => v < maxV).map((v) => (
           <g key={v}>
             <line x1={pl} x2={w - pr} y1={y(v)} y2={y(v)} stroke="var(--grid)" />
-            <text x={pl - 6} y={y(v) + 4} textAnchor="end">{v / 1000}k</text>
+            <text x={pl - 6} y={y(v) + 4} textAnchor="end">{v >= 1000 ? `${v / 1000}k` : v}</text>
           </g>
         ))}
         {points.map((p, i) => (
@@ -176,7 +176,7 @@ export function Columns({ points, goal, w = 780, h = 150 }) {
               show(e, (
                 <>
                   <div className="t">{p.date}</div>
-                  <b>{fmtValue(p.value)}</b> steps
+                  <b>{fmtValue(p.value)}</b> {unit}
                 </>
               ))
             }
@@ -185,7 +185,7 @@ export function Columns({ points, goal, w = 780, h = 150 }) {
         {goal && (
           <g>
             <line x1={pl} x2={w - pr} y1={y(goal)} y2={y(goal)} stroke="var(--axis)" />
-            <text x={pl + 4} y={y(goal) - 5}>goal {goal / 1000}k</text>
+            <text x={pl + 4} y={y(goal) - 5}>goal {goal >= 1000 ? `${goal / 1000}k` : goal}</text>
           </g>
         )}
         <text x={pl} y={h - 5}>{points[0].date.slice(5)}</text>

@@ -8,6 +8,8 @@ export const getSummary = (days) => get(`/api/summary?days=${days}`)
 export const getSeries = (metric, days) => get(`/api/series/${metric}?days=${days}`)
 export const getSleep = (days) => get(`/api/sleep?days=${days}`)
 export const getImportJob = (id) => get(`/api/import/${id}`)
+export const getWorkouts = (days) => get(`/api/workouts?days=${days}`)
+export const getWorkout = (id) => get(`/api/workouts/${encodeURIComponent(id)}`)
 
 export async function uploadImport(file, apiKey) {
   const form = new FormData()
