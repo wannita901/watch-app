@@ -45,16 +45,26 @@ def rolling_band(values, window=BAND_WINDOW, k=BAND_K):
 
 
 def daily_series(conn, metric, days, end=None):
-    """[(date, value)] per day, summed or averaged by metric kind."""
+    """[(date, value)] per day, summed or averaged by metric kind.
+
+    Counters: iPhone and Watch both record (steps etc.) and the Health app
+    dedupes them; summing devices together double-counts. We sum per source
+    and keep the best source per day instead.
+    """
     end = end or date.today()
     start = (end - timedelta(days=days - 1)).isoformat()
-    agg = "SUM" if metric in SUM_METRICS else "AVG"
-    rows = conn.execute(
-        f"""SELECT substr(ts, 1, 10) AS day, {agg}(value) FROM samples
-            WHERE metric = ? AND day >= ? AND day <= ?
-            GROUP BY day ORDER BY day""",
-        (metric, start, end.isoformat()),
-    ).fetchall()
+    if metric in SUM_METRICS:
+        sql = """SELECT day, MAX(total) FROM (
+                     SELECT substr(ts, 1, 10) AS day, SUM(value) AS total
+                     FROM samples
+                     WHERE metric = ? AND substr(ts, 1, 10) BETWEEN ? AND ?
+                     GROUP BY day, source)
+                 GROUP BY day ORDER BY day"""
+    else:
+        sql = """SELECT substr(ts, 1, 10) AS day, AVG(value) FROM samples
+                 WHERE metric = ? AND substr(ts, 1, 10) BETWEEN ? AND ?
+                 GROUP BY day ORDER BY day"""
+    rows = conn.execute(sql, (metric, start, end.isoformat())).fetchall()
     return [(r[0], round(r[1], 4)) for r in rows]
 
 
