@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>v2 Build Plan — Watch Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="content">
+    <header>
+      <div class="eyebrow">Phase 4 · Deploy + v2</div>
+      <h1>v2 Build Plan — Workouts, Noise, Mindfulness</h1>
+      <div class="meta">2026-07-10 · v1 deployed and validated on real data (steps dedupe fixed after real-device check)</div>
+    </header>
+
+    <p class="lead">
+      v2 adds the three deferred features: workout detail (route map + in-workout heart rate),
+      noise exposure, and mindful minutes. Same TDD discipline; data model grows one column.
+    </p>
+
+    <div class="callout good">
+      <div class="label">Decisions</div>
+      (1) <b>Maps: Leaflet + OpenStreetMap tiles</b> — only new frontend dependency; hand-rolled
+      maps fail the sanity bar, SVG-only routes lose all context. Tiles need internet; fine for a
+      LAN dashboard. (2) <b>Routes stored as downsampled [lat, lon] lists (≤500 points)</b> in a new
+      <code>workouts.route_json</code> column — added via idempotent ALTER TABLE migration, no
+      re-import required for old rows (they simply lack routes until next import). (3) <b>In-workout
+      HR curve queried from raw <code>samples</code></b> between workout start/end — no new storage.
+      (4) <b>Workouts UI = fifth domain row</b> (recent list → expand one → map + HR curve), Noise
+      &amp; mindfulness = sixth row with daily charts. No new pages.
+    </div>
+
+    <h2>Work items</h2>
+    <table>
+      <thead><tr><th>#</th><th>Item</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>DB migration</td><td><code>route_json</code> column on workouts; idempotent ALTER TABLE in <code>db.connect()</code></td></tr>
+        <tr><td>2</td><td>Importer: GPX routes</td><td>export.zip contains <code>workout-routes/*.gpx</code> (routes are NOT in export.xml); parse trkpts, downsample, attach to the workout matching the file's time span</td></tr>
+        <tr><td>3</td><td>Importer: mindful sessions</td><td><code>HKCategoryTypeIdentifierMindfulSession</code> records have no numeric value (currently skipped) → store duration minutes as <code>mindful_minutes</code> samples</td></tr>
+        <tr><td>4</td><td>Ingest: HAE route + heart rate data</td><td>HAE workouts can carry <code>route</code> arrays and HR fields — store route if present, tolerate absence</td></tr>
+        <tr><td>5</td><td>API</td><td><code>GET /api/workouts?days=N</code> (list) · <code>GET /api/workouts/{id}</code> (detail: route + HR series from samples in the workout window)</td></tr>
+        <tr><td>6</td><td>Frontend</td><td>Workouts row (list → expand: Leaflet map + HR curve); Noise &amp; mind row (environmental dB, headphone dB, mindful minutes charts); aliases for the three metrics</td></tr>
+        <tr><td>7</td><td>Verify</td><td>pytest fixtures incl. synthetic GPX in zip; live browser screenshot; Docker rebuild; push</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout warn">
+      <div class="label">Risks</div>
+      GPX-to-workout matching relies on time overlap — routes without a matching workout are
+      dropped (logged). HAE's workout route field shape is doc-derived; unknown shapes are kept in
+      <code>raw_json</code> so nothing is lost. OSM tile usage is personal-scale — fine under OSM policy.
+    </div>
+
+  </main>
+  <script src="nav.js"></script>
+</body>
+</html>

@@ -23,6 +23,7 @@ const PAGES = [
   { file: "1_requirements-architecture.html", n: 1, phase: 2, title: "Requirements & Architecture" },
   { file: "2_interface-design.html", n: 2, phase: 2, title: "Interface Design" },
   { file: "3_build-plan.html", n: 3, phase: 3, title: "Build Plan v1" },
+  { file: "4_v2-build-plan.html", n: 4, phase: 4, title: "v2 Build Plan" },
 ];
 
 /* ========================== END CONFIG ========================== */
