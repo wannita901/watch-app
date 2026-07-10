@@ -119,3 +119,21 @@ def test_summary_resolves_metric_aliases(client, conn):
     seed(conn, "heart_rate_variability_sdnn", [(d, 45) for d in dd])
     s = client.get("/api/summary?days=30").json()
     assert s["domains"]["heart"]["hrv"] == pytest.approx(45)
+
+
+def test_series_counter_metrics_dedupe_across_sources(client, conn):
+    # iPhone and Watch both record steps; Health app dedupes, we take the
+    # best single source per day instead of summing devices together.
+    d = days_back(1)[0]
+    import db
+
+    db.upsert_samples(
+        conn,
+        [
+            ("step_count", f"{d} 09:00:00 +1000", 500, "count", "Phone"),
+            ("step_count", f"{d} 09:00:00 +1000", 480, "count", "Watch"),
+            ("step_count", f"{d} 10:00:00 +1000", 300, "count", "Phone"),
+        ],
+    )
+    pts = client.get("/api/series/step_count?days=7").json()["points"]
+    assert pts[0]["value"] == 800  # Phone total wins; never 500+480+300
