@@ -49,6 +49,7 @@ def run_import(job_id: str, path: str):
     conn = db.connect()
     try:
         counts = _parse(conn, path, job)
+        counts["routes"] = _attach_routes(conn, path)
         db.log_ingest(
             conn,
             datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %z"),
@@ -86,7 +87,15 @@ def _parse(conn, path, job):
                 continue
             if el.tag == "Record":
                 t = el.get("type", "")
-                if t == "HKCategoryTypeIdentifierSleepAnalysis":
+                if t == "HKCategoryTypeIdentifierMindfulSession":
+                    # no numeric value; the duration is the datum
+                    end = el.get("endDate")
+                    minutes = _hours(el.get("startDate"), end) * 60
+                    samples.append(
+                        ("mindful_minutes", end, round(minutes, 2), "min",
+                         el.get("sourceName", ""))
+                    )
+                elif t == "HKCategoryTypeIdentifierSleepAnalysis":
                     stage = STAGE_VALUES.get(el.get("value", ""))
                     if stage:
                         end = el.get("endDate")
@@ -170,5 +179,61 @@ def _import_workout(conn, el):
             distance,
             None,
             json.dumps(dict(el.attrib)),
+            None,  # route attached after the XML pass (GPX files live beside it)
         ),
     )
+
+
+MAX_ROUTE_POINTS = 500
+
+
+def downsample(points, limit=MAX_ROUTE_POINTS):
+    """Thin a point list to <= limit, always keeping first and last."""
+    if len(points) <= limit:
+        return points
+    step = (len(points) - 1) / (limit - 1)
+    return [points[round(i * step)] for i in range(limit)]
+
+
+def _attach_routes(conn, path):
+    """Parse workout-routes/*.gpx from the zip and attach each to the workout
+    whose time window contains the route's first point. ponytail: linear scan
+    per route — fine at personal scale (hundreds of workouts)."""
+    if not zipfile.is_zipfile(path):
+        return 0
+    workouts = [
+        (wid, _dt(s), _dt(e))
+        for wid, s, e in conn.execute(
+            "SELECT id, start_ts, end_ts FROM workouts"
+        ).fetchall()
+        if s and e
+    ]
+    attached = 0
+    with zipfile.ZipFile(path) as z:
+        for name in z.namelist():
+            if "workout-routes/" not in name or not name.endswith(".gpx"):
+                continue
+            points, first_time = [], None
+            with z.open(name) as f:
+                for _, el in iterparse(f, events=("end",)):
+                    if el.tag.endswith("}trkpt") or el.tag == "trkpt":
+                        points.append([float(el.get("lat")), float(el.get("lon"))])
+                        if first_time is None:
+                            time_el = next(iter(el), None)
+                            if time_el is not None and time_el.text:
+                                first_time = datetime.fromisoformat(
+                                    time_el.text.replace("Z", "+00:00")
+                                )
+                        el.clear()
+            if not points or first_time is None:
+                continue
+            for wid, start, end in workouts:
+                if start <= first_time <= end:
+                    conn.execute(
+                        "UPDATE workouts SET route_json = ? WHERE id = ?",
+                        (json.dumps(downsample(points)), wid),
+                    )
+                    attached += 1
+                    break
+    conn.commit()
+    return attached

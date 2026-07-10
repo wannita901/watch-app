@@ -16,6 +16,7 @@ SUM_METRICS = {
     "distance_walking_running",
     "walking_running_distance",
     "mindful_session",
+    "mindful_minutes",
 }
 
 # canonical name → acceptable stored names (HAE and export.xml differ)

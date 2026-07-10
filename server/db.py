@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS workouts (
     energy_kcal REAL,
     distance_km REAL,
     avg_hr      REAL,
-    raw_json    TEXT
+    raw_json    TEXT,
+    route_json  TEXT
 );
 CREATE TABLE IF NOT EXISTS raw_points (
     metric TEXT NOT NULL,
@@ -59,7 +60,16 @@ def connect() -> sqlite3.Connection:
         os.makedirs(parent, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.executescript(SCHEMA)
+    _migrate(conn)
     return conn
+
+
+def _migrate(conn):
+    """Idempotent column additions for DBs created before the column existed."""
+    try:
+        conn.execute("ALTER TABLE workouts ADD COLUMN route_json TEXT")
+    except sqlite3.OperationalError:
+        pass  # already there
 
 
 def upsert_samples(conn, rows):
@@ -80,8 +90,9 @@ def upsert_sleep_night(conn, row):
 
 
 def upsert_workout(conn, row):
-    """row: (id, type, start_ts, end_ts, duration_s, energy_kcal, distance_km, avg_hr, raw_json)."""
-    conn.execute("INSERT OR REPLACE INTO workouts VALUES (?,?,?,?,?,?,?,?,?)", row)
+    """row: (id, type, start_ts, end_ts, duration_s, energy_kcal, distance_km,
+    avg_hr, raw_json, route_json)."""
+    conn.execute("INSERT OR REPLACE INTO workouts VALUES (?,?,?,?,?,?,?,?,?,?)", row)
     conn.commit()
 
 

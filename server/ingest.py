@@ -51,6 +51,17 @@ def _ingest_metric(conn, metric, samples, raws, sleeps):
             raws.append((name, ts, json.dumps(point)))
 
 
+def _route(w):
+    """HAE route: list of points with lat/lon (or latitude/longitude) keys."""
+    points = []
+    for p in w.get("route") or []:
+        lat = p.get("lat", p.get("latitude"))
+        lon = p.get("lon", p.get("longitude", p.get("lng")))
+        if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
+            points.append([lat, lon])
+    return json.dumps(points) if points else None
+
+
 def _ingest_workout(conn, w):
     start, end = w.get("start", ""), w.get("end", "")
     wid = f"{w.get('name', 'workout')}|{start}"
@@ -67,6 +78,7 @@ def _ingest_workout(conn, w):
             _num(w.get("distance")),
             _num(w.get("avgHeartRate")),
             json.dumps(w),
+            _route(w),
         ),
     )
 

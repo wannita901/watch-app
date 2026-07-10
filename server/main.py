@@ -132,6 +132,57 @@ def sleep(days: int = 30):
     return {"nights": [dict(zip(keys, r)) for r in rows]}
 
 
+@app.get("/api/workouts")
+def workouts(days: int = 30):
+    from datetime import date, timedelta
+
+    start = (date.today() - timedelta(days=days - 1)).isoformat()
+    conn = db.connect()
+    try:
+        rows = conn.execute(
+            """SELECT id, type, start_ts, end_ts, duration_s, energy_kcal,
+                      distance_km, avg_hr, route_json IS NOT NULL
+               FROM workouts WHERE substr(start_ts, 1, 10) >= ?
+               ORDER BY start_ts DESC""",
+            (start,),
+        ).fetchall()
+    finally:
+        conn.close()
+    keys = ["id", "type", "start_ts", "end_ts", "duration_s", "energy_kcal",
+            "distance_km", "avg_hr", "has_route"]
+    return {"workouts": [dict(zip(keys, (*r[:8], bool(r[8])))) for r in rows]}
+
+
+@app.get("/api/workouts/{wid}")
+def workout_detail(wid: str):
+    import json as _json
+
+    conn = db.connect()
+    try:
+        row = conn.execute(
+            """SELECT id, type, start_ts, end_ts, duration_s, energy_kcal,
+                      distance_km, avg_hr, route_json
+               FROM workouts WHERE id = ?""",
+            (wid,),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="unknown workout")
+        hr = conn.execute(
+            """SELECT ts, value FROM samples
+               WHERE metric = 'heart_rate' AND ts >= ? AND ts <= ?
+               ORDER BY ts""",
+            (row[2], row[3]),
+        ).fetchall()
+    finally:
+        conn.close()
+    keys = ["id", "type", "start_ts", "end_ts", "duration_s", "energy_kcal",
+            "distance_km", "avg_hr"]
+    detail = dict(zip(keys, row[:8]))
+    detail["route"] = _json.loads(row[8]) if row[8] else None
+    detail["hr"] = [{"ts": t, "value": v} for t, v in hr]
+    return detail
+
+
 # Serve the built frontend (must be mounted last so /api/* wins).
 _STATIC = os.environ.get(
     "STATIC_DIR", os.path.join(os.path.dirname(__file__), "..", "web", "dist")
