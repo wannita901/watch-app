@@ -23,6 +23,17 @@ later: `cat .env`.
 SQLite lives in the `watch-data` Docker volume (deliberately not under OneDrive — sync
 would corrupt it). Backup: `docker compose cp watch-app:/data/watch.db ./backup.db`.
 
+## Stop / start
+
+```bash
+docker compose down     # stop (from this folder) — data survives, it's in the volume
+docker compose up -d    # start again (--build only after code changes)
+```
+
+Never `docker compose down -v` — the `-v` deletes the volume, i.e. all your data.
+Quitting Docker Desktop after stopping is fine; HAE pushes fail while the server is off,
+and that window's data arrives on the next successful sync (or via re-import).
+
 ## First-time setup (Wannita's checklist)
 
 1. **Backfill history**: iPhone Health app → profile picture → *Export All Health Data* →
